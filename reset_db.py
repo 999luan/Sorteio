@@ -1,75 +1,60 @@
+import os
 import csv
-from database import create_tables, engine, Token, Base, SessionLocal
-import logging
-from sqlalchemy import text
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from database import Base, Token, Order
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Configuração do banco de dados
+DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///sorteio.db')
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# Criar engine do SQLAlchemy
+engine = create_engine(DATABASE_URL)
 
 def reset_database():
-    logging.info("🗑️ Removendo tabelas existentes...")
-    with engine.connect() as conn:
-        # Desativa as constraints temporariamente
-        conn.execute(text("SET session_replication_role = 'replica';"))
-        
-        # Remove todas as tabelas
-        conn.execute(text("DROP TABLE IF EXISTS tokens CASCADE;"))
-        conn.execute(text("DROP TABLE IF EXISTS tokens_backup CASCADE;"))
-        conn.execute(text("DROP TABLE IF EXISTS purchases CASCADE;"))
-        conn.execute(text("DROP TABLE IF EXISTS purchases_backup CASCADE;"))
-        
-        # Reativa as constraints
-        conn.execute(text("SET session_replication_role = 'origin';"))
-        conn.commit()
+    print("🗑️ Removendo tabelas existentes...")
+    Base.metadata.drop_all(engine)
     
-    logging.info("📦 Criando novas tabelas...")
-    create_tables()
-
-def load_tokens_from_csv():
-    logging.info("📝 Carregando tokens do arquivo CSV...")
-    db = SessionLocal()
+    print("🏗️ Criando novas tabelas...")
+    Base.metadata.create_all(engine)
+    
+    # Criar sessão
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    
     try:
-        # Lê o arquivo CSV e insere os tokens
-        with open('tokens.csv', 'r') as csvfile:
-            reader = csv.reader(csvfile)
-            next(reader)  # Pula o cabeçalho
-            tokens = []
-            for row in reader:
-                if row:  # Verifica se a linha não está vazia
-                    token = Token(number=row[0], is_used=False)
-                    tokens.append(token)
+        print("📝 Lendo tokens do arquivo CSV...")
+        with open('tokens.csv', 'r') as file:
+            csv_reader = csv.DictReader(file)
+            tokens_count = 0
             
-            # Insere todos os tokens de uma vez
-            db.bulk_save_objects(tokens)
-            db.commit()
-            logging.info(f"✅ {len(tokens)} tokens inseridos com sucesso!")
+            print("💾 Inserindo tokens no banco de dados...")
+            for row in csv_reader:
+                token = Token(
+                    number=row['Token'],
+                    is_used=False
+                )
+                session.add(token)
+                tokens_count += 1
+                
+                # Commit a cada 100 tokens para não sobrecarregar a memória
+                if tokens_count % 100 == 0:
+                    session.commit()
+                    print(f"✅ {tokens_count} tokens inseridos...")
+            
+            # Commit final para os tokens restantes
+            session.commit()
+            print(f"🎉 Total de {tokens_count} tokens inseridos com sucesso!")
+            
     except Exception as e:
-        logging.error(f"❌ Erro ao carregar tokens: {e}")
-        db.rollback()
+        print(f"❌ Erro durante a inserção dos tokens: {str(e)}")
+        session.rollback()
+        raise
     finally:
-        db.close()
-
-def verify_database():
-    db = SessionLocal()
-    try:
-        # Verifica quantidade de tokens
-        token_count = db.query(Token).count()
-        unused_token_count = db.query(Token).filter_by(is_used=False).count()
-        used_token_count = db.query(Token).filter_by(is_used=True).count()
-        
-        logging.info("\n=== Status do Banco de Dados ===")
-        logging.info(f"📊 Total de tokens: {token_count}")
-        logging.info(f"🟢 Tokens disponíveis: {unused_token_count}")
-        logging.info(f"🔴 Tokens usados: {used_token_count}")
-        logging.info("============================\n")
-        
-    except Exception as e:
-        logging.error(f"❌ Erro ao verificar banco de dados: {e}")
-    finally:
-        db.close()
+        session.close()
 
 if __name__ == "__main__":
-    logging.info("🚀 Iniciando reset do banco de dados...")
+    print("🚀 Iniciando reset do banco de dados...")
     reset_database()
-    load_tokens_from_csv()
-    verify_database()
-    logging.info("✨ Processo finalizado!") 
+    print("✨ Banco de dados resetado e populado com sucesso!") 
