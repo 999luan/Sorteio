@@ -4,24 +4,30 @@ Sistema web para venda de números da sorte para sorteio de carro, com integraç
 
 ## 🚀 Funcionalidades
 
-- ✨ Interface moderna e responsiva
-- 💳 Integração com Mercado Pago
-- 📧 Notificações por e-mail automáticas
-- 🔔 Notificações no Discord
-- 🎫 Gerenciamento de números da sorte
-- 📱 Layout adaptativo para mobile
-- 🖨️ Opção de impressão dos números
+- ✨ Interface moderna e responsiva com efeitos visuais dinâmicos.
+- 🚗 **Carrossel de Imagens:** Exibição interativa de fotos do carro do sorteio.
+- ✍️ **Efeito Typewriter:** Título dinâmico na página inicial para engajamento.
+- 💳 Integração com Mercado Pago para processamento de pagamentos.
+- 📧 Notificações por e-mail automáticas para confirmação de compra.
+- 🔔 Notificações no Discord para acompanhamento de vendas em tempo real.
+- 🎫 Gerenciamento de números da sorte, com reserva e liberação.
+-  Layout adaptativo para mobile, garantindo ótima experiência em qualquer dispositivo.
+- 🖨️ Opção de impressão dos números da sorte para registro físico.
+- 📄 **Ficha Técnica Detalhada:** Modal com informações completas sobre o veículo.
 
 ## 🛠️ Tecnologias Utilizadas
 
 - Python 3.x
 - Flask (Framework Web)
+- Gunicorn (WSGI Server)
 - SQLAlchemy (ORM)
 - PostgreSQL (Banco de Dados)
 - Mercado Pago SDK
 - Flask-Mail
-- HTML/CSS
+- Python-Jose (JWT for security)
+- HTML/CSS/JavaScript
 - Vercel (Deploy)
+- Railway (Deploy)
 
 ## ⚙️ Configuração do Ambiente
 
@@ -61,21 +67,28 @@ BASE_URL=https://seu-dominio.com
 
 ## 🗃️ Estrutura do Banco de Dados
 
-O sistema utiliza uma tabela principal:
+O sistema utiliza uma tabela principal para gerenciar os tokens de sorteio e as informações dos compradores:
 
-### Tabela: tokens
-- `id`: ID único do token
-- `number`: Número da sorte
-- `is_used`: Status de uso
-- `owner_name`: Nome do comprador
-- `owner_email`: Email do comprador
-- `owner_cpf`: CPF do comprador
-- `owner_phone`: Telefone do comprador
-- `payment_id`: ID do pagamento (Mercado Pago)
-- `payment_status`: Status do pagamento
-- `external_reference`: Referência externa
-- `purchase_date`: Data da compra
-- `total_amount`: Valor pago
+### Tabela: `tokens`
+- `id`: ID único do token (Integer, Primary Key, Index)
+- `number`: Número da sorte (String, Unique, Index, Not Null)
+- `is_used`: Status de uso do token (Boolean, Default: False)
+- `owner_name`: Nome completo do comprador (String)
+- `owner_email`: E-mail do comprador (String)
+- `owner_cpf`: CPF do comprador (String)
+- `owner_phone`: Telefone do comprador (String)
+- `payment_id`: ID do pagamento gerado pelo Mercado Pago (String)
+- `payment_status`: Status do pagamento (ex: 'pending', 'approved', 'rejected') (String)
+- `external_reference`: Referência externa da transação, usada para agrupar tokens de uma mesma compra (String, Index)
+- `purchase_date`: Data e hora da compra (DateTime, Default: UTC Now)
+- `total_amount`: Valor total pago por este token (Float)
+
+### Conexão com o Banco de Dados
+
+- O sistema é configurado para se conectar a um banco de dados PostgreSQL, utilizando SQLAlchemy como ORM.
+- A URL de conexão é definida pela variável de ambiente `DATABASE_URL`.
+- Há uma configuração específica para otimizar a conexão com o **Supabase Transaction Pooler**, incluindo parâmetros como `sslmode=require`, `connect_timeout`, `application_name`, e `statement_timeout`.
+- A função `get_db` implementa um mecanismo de retry para garantir a robustez da conexão em caso de falhas temporárias.
 
 ## 📋 Scripts de Utilidade
 
@@ -127,11 +140,21 @@ O sistema inclui logs detalhados para:
 
 ## 📦 Deploy
 
+### Deploy na Vercel
+
 O sistema está configurado para deploy na Vercel:
 - Arquivo `vercel.json` com configurações
 - Suporte a serverless functions
 - Configuração de rotas
 - Variáveis de ambiente
+
+### Deploy na Railway
+
+O sistema também está configurado para deploy na Railway:
+- Arquivo `Procfile` para definir o comando de inicialização do Gunicorn.
+- Arquivo `railway.json` com configurações de build e deploy, incluindo healthcheck.
+- A Railway detectará automaticamente o `Procfile` e o `railway.json` para configurar o deploy.
+- Certifique-se de configurar as mesmas variáveis de ambiente (`.env`) na Railway.
 
 ## 🤝 Contribuição
 
@@ -143,4 +166,4 @@ O sistema está configurado para deploy na Vercel:
 
 ## 📄 Licença
 
-Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes. 
+Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
